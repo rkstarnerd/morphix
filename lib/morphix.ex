@@ -370,32 +370,34 @@ defmodule Morphix do
   end
 
   defp depth_atomog(map, safe_or_atomize, allowed \\ []) do
-    atomkeys = fn {k, v}, acc ->
-      cond do
-        is_struct(v) ->
-          Map.put_new(acc, safe_or_atomize.(k, allowed), v)
-
-        is_map(v) ->
-          Map.put_new(
-            acc,
-            safe_or_atomize.(k, allowed),
-            depth_atomog(v, safe_or_atomize, allowed)
-          )
-
-        is_list(v) ->
-          Map.put_new(
-            acc,
-            safe_or_atomize.(k, allowed),
-            process_list_item(v, safe_or_atomize, allowed)
-          )
-
-        true ->
-          Map.put_new(acc, safe_or_atomize.(k, allowed), v)
-      end
-    end
-
+    args = [safe_or_atomize, allowed]
+    atomkeys = fn elem, acc -> get_atomkeys(elem, acc, args) end
     Enum.reduce(map, %{}, atomkeys)
   end
+
+    defp get_atomkeys({k, v = %__struct__{}}, acc, [safe_or_atomize, allowed]) do
+      Map.put_new(acc, safe_or_atomize.(k, allowed), v)
+    end
+
+    defp get_atomkeys({k, v}, acc, [safe_or_atomize, allowed]) when is_map(v) do
+      Map.put_new(
+        acc,
+        safe_or_atomize.(k, allowed),
+        depth_atomog(v, safe_or_atomize, allowed)
+      )
+    end
+
+    defp get_atomkeys({k, v}, acc, [safe_or_atomize, allowed]) when is_list(v) do
+      Map.put_new(
+        acc,
+        safe_or_atomize.(k, allowed),
+        process_list_item(v, safe_or_atomize, allowed)
+      )
+    end
+
+    defp get_atomkeys({k, v}, acc, [safe_or_atomize, allowed]) do
+      Map.put_new(acc, safe_or_atomize.(k, allowed), v)
+    end
 
   defp atomog(map, safe_or_atomize, allowed \\ []) do
     atomkeys = fn {k, v}, acc ->
@@ -511,7 +513,10 @@ defmodule Morphix do
   end
 
   def compactify!(not_map_or_list) do
-    raise(ArgumentError, message: "expecting a map or a list, got: #{inspect not_map_or_list}")
+    raise(
+      ArgumentError,
+      message: "expecting a map or a list, got: #{inspect not_map_or_list}"
+    )
   end
 
   defp compactify!(true, list) do
@@ -519,7 +524,7 @@ defmodule Morphix do
   end
 
   defp compactify!(false, list) do
-    Enum.reject(list, fn(elem)   -> is_nil(elem) end)
+    Enum.reject(list, fn(elem) -> is_nil(elem) end)
   end
 
   @doc """
